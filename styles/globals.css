@@ -2,3 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .stats {
+    @apply bg-[#2b323b] text-white p-4 flex-1 rounded-md border-slate-400 border-2 hover:border-slate-300 transition duration-200 ease-in-out;
+  }
+  .stats-container {
+    @apply bg-[#2b323b] p-5 rounded-lg border-slate-300 border hover:border-slate-500 transition duration-300 ease-in-out;
+  }
+  .countdown {
+    @apply p-8 text-5xl text-center text-white rounded-lg lg:min-w-[150px] bg-[#20242a];
+  }
+  .countdown-label {
+    @apply text-center text-slate-200 uppercase text-sm pt-4 font-bold;
+  }
+}
