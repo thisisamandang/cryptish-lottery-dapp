@@ -160,8 +160,8 @@ export default function Home() {
     }
   };
 
-  if (isLoading) return <Loading />;
   if (!address) return <Login />;
+  if (isLoading) return <Loading />;
 
   return (
     <div className="bg-[#0c1216] min-h-screen flex flex-col">
