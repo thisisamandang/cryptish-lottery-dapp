@@ -15,4 +15,8 @@
   .countdown-label {
     @apply text-center text-slate-200 uppercase text-sm pt-4 font-bold;
   }
+.admin-button{
+    @apply p-2 flex-1 rounded-md border-2 border-slate-400 hover:border-slate-200 transition duration-300 ease-in-out bg-[#2b323b]
+}
+
 }

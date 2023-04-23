@@ -12,13 +12,18 @@ import {
 import Login from "@/components/Login";
 import Loading from "@/components/Loading";
 import CountdownTimer from "@/components/CountdownTimer";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import { currency } from "@/constants";
 import { toast } from "react-hot-toast";
+import Image from "next/image";
+import logo from "../public/logo.png";
+import AdminControls from "@/components/AdminControls";
 
 export default function Home() {
-  const [quantity, setQuantity] = useState(1);
+  const address = useAddress();
+  const [userTickets, setUserTickets] = useState(0);
+  const [quantity, setQuantity] = useState<number>(1);
   const { contract, isLoading } = useContract(
     process.env.NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS
   );
@@ -30,16 +35,37 @@ export default function Home() {
     contract,
     "CurrentWinningReward"
   );
-  const { data: ticketPrice } = useContractRead(contract, "ticketPrice");
 
+  const { data: ticketPrice } = useContractRead(contract, "ticketPrice");
   const { data: ticketCommission } = useContractRead(
     contract,
     "ticketCommission"
   );
-
+  const { data: winnings } = useContractRead(
+    contract,
+    "getWinningsForAddress",
+    [address]
+  );
+  const { data: isLotteryOperator } = useContractRead(
+    contract,
+    "lotteryOperator"
+  );
   const { data: expiration } = useContractRead(contract, "expiration");
-
+  const { data: tickets } = useContractRead(contract, "getTickets");
   const { mutateAsync: buyTickets } = useContractWrite(contract, "BuyTickets");
+
+  useEffect(() => {
+    if (!tickets) return;
+
+    const totalTickets: string[] = tickets;
+
+    const noOfUserTickets = totalTickets.reduce(
+      (total, ticketAddress) => (ticketAddress === address ? total + 1 : total),
+      0
+    );
+
+    setUserTickets(noOfUserTickets);
+  }, [tickets, address]);
 
   const clickHandler = async () => {
     if (!ticketPrice) return;
@@ -51,6 +77,7 @@ export default function Home() {
       },
     });
 
+    // Doesn't work for some weird reason!
     // try {
     //   const data = await BuyTickets({
     //     value: [
@@ -65,8 +92,10 @@ export default function Home() {
     // } catch (err) {
     //   console.error("contract call failure", err);
     // }
+
+    // This works for some reason!
     try {
-      const numOfTicketsToBuy = quantity; // replace with the number of tickets to buy
+      const numOfTicketsToBuy = quantity;
       const value = ethers.utils.parseEther(
         (
           Number(ethers.utils.formatEther(ticketPrice)) * numOfTicketsToBuy
@@ -94,7 +123,43 @@ export default function Home() {
       });
     }
   };
-  const address = useAddress();
+
+  const { mutateAsync: WithdrawWinnings } = useContractWrite(
+    contract,
+    "WithdrawWinnings"
+  );
+
+  const onWithdrawWinnings = async () => {
+    const notification = toast.loading("Withdrawing Winnings", {
+      // id: notification,
+      style: {
+        borderRadius: "10px",
+        background: "#333",
+        color: "#fff",
+      },
+    });
+    try {
+      const data = await WithdrawWinnings({});
+      const notification = toast.success("Transaction Successful!", {
+        // id: notification,
+        style: {
+          borderRadius: "10px",
+          background: "#333",
+          color: "#fff",
+        },
+      });
+    } catch (error) {
+      toast.error("whoops Something went wrong", {
+        id: notification,
+        style: {
+          borderRadius: "10px",
+          background: "#333",
+          color: "#fff",
+        },
+      });
+    }
+  };
+
   if (isLoading) return <Loading />;
   if (!address) return <Login />;
 
@@ -106,6 +171,28 @@ export default function Home() {
       <div className=" flex-1">
         <Header />
 
+        {isLotteryOperator === address && (
+          <div className="flex justify-center">
+            <AdminControls />
+          </div>
+        )}
+
+        {winnings > 0 && (
+          <div className="max-w-md md:max-w-2xl lg:max-w-4xl mx-auto mt-5">
+            <button
+              className="p-5 bg-[#ffffff] hover:bg-slate-600 transition duration-300 ease-in-out text-center rounded-xl w-full hover:text-white font-semibold"
+              onClick={onWithdrawWinnings}
+            >
+              <p className="font-bold">You Won this Draw!</p>
+              <p>
+                Total Winnings: {ethers.utils.formatEther(winnings.toString())}{" "}
+                {currency}
+              </p>
+              <br />
+              Click Here to Withdraw
+            </button>
+          </div>
+        )}
         {/* Draw Box */}
         <div className="space-y-5 md:space-y-0 m-5 md:flex md:flex-row items-start justify-center md:space-x-5">
           <div className="stats-container">
@@ -190,14 +277,37 @@ export default function Home() {
                   remainingTickets?.toNumber() === 0
                 }
                 onClick={clickHandler}
-                className="mt-5 w-full bg-[white] rounded-md px-10 py-5 shadow-xl disabled:bg-gray-400 disabled:text-gray-100 disabled:cursor-not-allowed"
+                className="mt-5 w-full bg-[white] rounded-md px-10 py-5 shadow-xl disabled:bg-gray-400 font-semibold disabled:text-gray-100 disabled:cursor-not-allowed"
               >
                 Buy
               </button>
             </div>
+            {userTickets > 0 && (
+              <div className="stats">
+                <p className="text-lg mb-2">
+                  You have {userTickets} Ticket(s) in the current draw
+                </p>
+                <div className="flex max-w-sm flex-wrap gap-x-2 gap-y-2">
+                  {Array(userTickets)
+                    .fill("")
+                    .map((_, index) => (
+                      <p
+                        key={index}
+                        className="text-[#6adfc4] h-20 w-12 bg-[#20242a] rounded-lg flex flex-shrink-0 items-center justify-center text-xs italic"
+                      >
+                        {index + 1}
+                      </p>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
+      <footer className="border-t border-slate-600 flex items-center text-white justify-center p-5">
+        <p className="text-xs text-white mr-2">Built by Aman</p>
+        <Image src={logo} className="h-10 w-10 rounded-full" alt="logo" />
+      </footer>
     </div>
   );
 }
